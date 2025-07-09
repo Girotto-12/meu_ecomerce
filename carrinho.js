@@ -5,6 +5,8 @@ const totalEl = document.getElementById("total");
 
 function renderizarCarrinho() {
   container.innerHTML = "";
+  let total = 0;
+
   if (carrinho.length === 0) {
     container.innerHTML = "<p>🛒 Seu carrinho está vazio.</p>";
     totalEl.textContent = "Total: R$ 0.00";
@@ -17,20 +19,13 @@ function renderizarCarrinho() {
 
     item.innerHTML = `
       <h3>${produto.nome}</h3>
-      <p>Preço: R$ ${produto.preco.toFixed(2)}</p>
+      <p>Preço: R$ ${Number(produto.preco).toFixed(2)}</p>
       <button onclick="removerItem(${index})">Remover</button>
       <hr>
     `;
 
     container.appendChild(item);
-    total += produto.preco;
-  });
-
-  document.getElementById("finalizarPedido").addEventListener("click", () => {
-    alert("📦 Pedido finalizado com sucesso!");
-    carrinho = [];
-    localStorage.setItem("carrinho", JSON.stringify(carrinho));
-    renderizarCarrinho();
+    total += Number(produto.preco); // garante que é número
   });
 
   totalEl.textContent = `Total: R$ ${total.toFixed(2)}`;
@@ -44,6 +39,7 @@ function removerItem(index) {
 
 renderizarCarrinho();
 
+// ✅ ÚNICO event listener para finalizar o pedido
 document.getElementById("finalizarPedido").addEventListener("click", () => {
   const usuario = JSON.parse(localStorage.getItem("usuarioLogado"));
 
@@ -63,12 +59,22 @@ document.getElementById("finalizarPedido").addEventListener("click", () => {
     resumo += `${i + 1}. ${item.nome} - R$ ${item.preco.toFixed(2)}\n`;
   });
 
-  resumo += `\nTotal: R$ ${carrinho.reduce((acc, p) => acc + p.preco, 0).toFixed(2)}`;
-  resumo += `\n\nCliente: ${usuario.nome}`;
+  const total = carrinho.reduce((acc, p) => acc + p.preco, 0);
+  resumo += `\nTotal: R$ ${total.toFixed(2)}\n`;
+  resumo += `Cliente: ${usuario.nome}`;
+
+  let pedidos = JSON.parse(localStorage.getItem("pedidos")) || [];
+  pedidos.push({
+    email: usuario.email,
+    nome: usuario.nome,
+    data: new Date().toLocaleString(),
+    itens: [...carrinho],
+    total
+  });
+  localStorage.setItem("pedidos", JSON.stringify(pedidos));
 
   alert(`✅ Pedido finalizado com sucesso!\n\n${resumo}`);
 
-  // Limpa o carrinho
   carrinho = [];
   localStorage.setItem("carrinho", JSON.stringify(carrinho));
   renderizarCarrinho();

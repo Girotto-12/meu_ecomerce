@@ -8,7 +8,7 @@ body {
 header {
     background-color: #a52a2a;
     color: white;
-    padding: 20px;
+    padding: 10px;
     text-align: center;
 }
 
@@ -37,14 +37,13 @@ main {
 }
 
 footer {
-    background-color: #a52a2a;
+    background-color: #a22;
     color: white;
     text-align: center;
     padding: 10px;
-    position: fixed;
-    width: 100%;
-    bottom: 0;
-}
+    margin-top: 50px;
+  }
+  
 
 .produto {
     border: 1px solid #ddd;
