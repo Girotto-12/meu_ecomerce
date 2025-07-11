@@ -54,6 +54,12 @@ document.getElementById("finalizarPedido").addEventListener("click", () => {
     return;
   }
 
+  document.getElementById("modalPagamento").classList.remove("hidden");
+});
+
+function finalizarComPagamento(formaPagamento) {
+  const usuario = JSON.parse(localStorage.getItem("usuarioLogado"));
+
   let resumo = "Resumo do pedido:\n\n";
   carrinho.forEach((item, i) => {
     resumo += `${i + 1}. ${item.nome} - R$ ${item.preco.toFixed(2)}\n`;
@@ -61,7 +67,8 @@ document.getElementById("finalizarPedido").addEventListener("click", () => {
 
   const total = carrinho.reduce((acc, p) => acc + p.preco, 0);
   resumo += `\nTotal: R$ ${total.toFixed(2)}\n`;
-  resumo += `Cliente: ${usuario.nome}`;
+  resumo += `Cliente: ${usuario.nome}\n`;
+  resumo += `Forma de Pagamento: ${formaPagamento}`;
 
   let pedidos = JSON.parse(localStorage.getItem("pedidos")) || [];
   pedidos.push({
@@ -69,7 +76,8 @@ document.getElementById("finalizarPedido").addEventListener("click", () => {
     nome: usuario.nome,
     data: new Date().toLocaleString(),
     itens: [...carrinho],
-    total
+    total,
+    pagamento: formaPagamento
   });
   localStorage.setItem("pedidos", JSON.stringify(pedidos));
 
@@ -78,4 +86,7 @@ document.getElementById("finalizarPedido").addEventListener("click", () => {
   carrinho = [];
   localStorage.setItem("carrinho", JSON.stringify(carrinho));
   renderizarCarrinho();
-});
+
+  document.getElementById("modalPagamento").classList.add("hidden");
+}
+

@@ -6,6 +6,17 @@
   <title>Carrinho - Linguicas Girotto</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
+<div id="modalPagamento" class="modal hidden">
+  <div class="modal-content">
+    <h3>Escolha a forma de pagamento</h3>
+    <button onclick="finalizarComPagamento('Cartão')">💳 Cartão</button>
+    <button onclick="finalizarComPagamento('Dinheiro')">💵 Dinheiro</button>
+    <button onclick="finalizarComPagamento('Entrega')">📦 Pagamento na Entrega</button>
+    <button onclick="finalizarComPagamento('PIX')">🧾 PIX</button>
+  </div>
+</div>
+
 <body>
   <header>
     <h1>Carrinho de Compras</h1>

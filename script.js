@@ -86,3 +86,10 @@ function sair() {
     window.location.reload();
 }
 
+if (user && user.email === "girotto@admin.com") {
+  const nav = document.querySelector("nav");
+  const adminLink = document.createElement("a");
+  adminLink.href = "admin.html";
+  adminLink.textContent = "Painel Admin";
+  nav.appendChild(adminLink);
+}
