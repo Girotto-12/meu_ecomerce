@@ -1,36 +1,5 @@
 // Lista de Produtos
-const produtos = [
-    {
-        id: 1,
-        nome: "Linguica Toscana Tradicional",
-        preco: 7.99,
-        imagem: "https://via.placeholder.com/150"
-    },
-    {
-        id: 2,
-        nome: "Linguica Toscana com Alho",
-        preco: 7.99,
-        imagem: "https://via.placeholder.com/150"
-    },
-    {
-        id: 3,
-        nome: "Linguica Fininha Artesanal",
-        preco: 7.99,
-        imagem: "https://via.placeholder.com/150"
-    },
-    {
-        id: 4,
-        nome: "Linguica Toscana Apimentada",
-        preco: 7.99,
-        imagem: "https://via.placeholder.com/150"
-    },
-    {
-        id: 5,
-        nome: "Linguica Toscana de Frango",
-        preco: 7.99,
-        imagem: "https://via.placeholder.com/150"
-    },
-];
+const produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 
 // Exibe produtos na tela
 const listaProdutos = document.querySelector('.lista-produtos');
