@@ -23,6 +23,12 @@
                         <input type="text" id="nome" placeholder="Nome do Produto" required />
                         <input type="number" id="preco" placeholder="Preço (R$)" step="0.01" required />
                         <input type="url" id="imagem" placeholder="URL da Imagem" required />
+                        
+                        <label>
+                            <input type="checkbox" id="promocao" />
+                            Produto em promacao
+                        </label>
+                       
                         <button type="submit">Cadastrar Produto</button>
                     </form>
 
@@ -38,6 +44,11 @@
             <p>&copy; 2025 Linguicas Girotto. Todos os direitos reservados.</p>
         </footer>
 
+        <!-- Supabase CDN -->
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/supabase.min.js"></script>
+
+        <!-- Seu script local -->
         <script src="admin-produtos.js"></script>
+
     </body>
 </html>

@@ -14,21 +14,41 @@ function renderizarCarrinho() {
   }
 
   carrinho.forEach((produto, index) => {
+    // Adiciona quantidade se não existir
+    if (!produto.quantidade) produto.quantidade = 1;
+
+    const subtotal = produto.preco * produto.quantidade;
+    total += subtotal;
+
     const item = document.createElement("div");
-    item.classList.add("produto");
+    item.classList.add("item-carrinho");
 
     item.innerHTML = `
-      <h3>${produto.nome}</h3>
-      <p>Preço: R$ ${Number(produto.preco).toFixed(2)}</p>
-      <button onclick="removerItem(${index})">Remover</button>
-      <hr>
+      <img src="${produto.imagem}" alt="${produto.nome}">
+      <div class="item-carrinho-info">
+        <div class="item-carrinho-nome">${produto.nome}</div>
+        <div class="item-carrinho-preco">Preço: R$ ${produto.preco.toFixed(2)}</div>
+        <div>Subtotal: R$ ${subtotal.toFixed(2)}</div>
+        <div>
+          <button onclick="alterarQuantidade(${index}, -1)">−</button>
+          <strong>${produto.quantidade}</strong>
+          <button onclick="alterarQuantidade(${index}, 1)">+</button>
+        </div>
+        <button onclick="removerItem(${index})">🗑️ Remover</button>
+      </div>
     `;
 
     container.appendChild(item);
-    total += Number(produto.preco); // garante que é número
   });
 
   totalEl.textContent = `Total: R$ ${total.toFixed(2)}`;
+}
+
+function alterarQuantidade(index, delta) {
+  carrinho[index].quantidade += delta;
+  if (carrinho[index].quantidade < 1) carrinho[index].quantidade = 1;
+  localStorage.setItem("carrinho", JSON.stringify(carrinho));
+  renderizarCarrinho();
 }
 
 function removerItem(index) {
@@ -38,6 +58,7 @@ function removerItem(index) {
 }
 
 renderizarCarrinho();
+
 
 // ✅ ÚNICO event listener para finalizar o pedido
 document.getElementById("finalizarPedido").addEventListener("click", () => {

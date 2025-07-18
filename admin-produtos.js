@@ -1,9 +1,18 @@
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+const SUPABASE_URL = 'https://idukyfshevrbutkddvuw.supabase.co';
+const SUPABASE_ANON_KEY = 'SUA-CHAVE-ANON';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+
+
 const form = document.getElementById("formProduto");
 const listaEl = document.getElementById("lista-produtos");
 const nomeInput = document.getElementById("nome");
 const precoInput = document.getElementById("preco");
 const imagemInput = document.getElementById("imagem");
 const botao = form.querySelector("button");
+
 
 let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 let editandoIndex = null;
@@ -23,11 +32,14 @@ function cadastrarProduto(e) {
         return;
     }
 
+    const promocao = document.getElementById("promocao").checked;
+
     const novoProduto = {
         id: Date.now(),
         nome,
         preco,
         imagem,
+        promocao
     };
 
     produtos.push(novoProduto);
@@ -43,6 +55,8 @@ function editarProduto(index) {
     nomeInput.value = produto.nome;
     precoInput.value = produto.preco;
     imagemInput.value = produto.imagem;
+    document.getElementById("promocao").checked = produto.promocao || false;
+
 
     botao.textContent = "Salvar Edição";
     editandoIndex = index;
@@ -57,6 +71,7 @@ function salvarEdicao(e) {
     const nome = nomeInput.value.trim();
     const preco = parseFloat(precoInput.value);
     const imagem = imagemInput.value.trim();
+    const promocao = document.getElementById("promocao").checked;
 
     if (!nome || isNaN(preco) || !imagem) {
         alert("⚠️ Preencha todos os campos corretamente.");
@@ -67,7 +82,8 @@ function salvarEdicao(e) {
         ...produtos[editandoIndex],
         nome,
         preco,
-        imagem
+        imagem,
+        promocao
     };
 
     localStorage.setItem("produtos", JSON.stringify(produtos));
@@ -107,6 +123,7 @@ function renderizarProdutos() {
             <img src="${produto.imagem}" alt="${produto.nome}" style="width: 100px;">
             <h3>${produto.nome}</h3>
             <p>R$ ${produto.preco.toFixed(2)}</p>
+            ${produto.promocao ? '<span style="color: red; font-weight: bold;">🔥 Em Promoção!</span>' : ''}
             <button onclick="editarProduto(${index})">✏️ Editar</button>
             <button onclick="removerProduto(${index})" style="margin-left: 8px;">🗑️ Remover</button>
         `;
@@ -116,3 +133,25 @@ function renderizarProdutos() {
 }
 
 renderizarProdutos();
+
+async function carregarProdutos() {
+  const { data: produtos, error } = await supabase.from("produtos").select("*");
+  if (error) {
+    console.error("Erro ao buscar produtos:", error);
+    return;
+  }
+
+  const container = document.getElementById("lista-produtos");
+  produtos.forEach((produto) => {
+    const div = document.createElement("div");
+    div.classList.add("produto");
+    div.innerHTML = `
+      <img src="${produto.imagem}" alt="${produto.nome}">
+      <h3>${produto.nome}</h3>
+      <p>Preço: R$ ${produto.preco.toFixed(2)}</p>
+    `;
+    container.appendChild(div);
+  });
+}
+
+carregarProdutos();
