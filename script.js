@@ -105,9 +105,3 @@ function limparFiltros() {
   renderizarProdutos(produtos);
 }
 
-// script.js ou outro arquivo JS principal
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-const supabaseUrl = 'https://idukyfshevrbutkddvuw.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // sua chave completa aqui
-const supabase = createClient(supabaseUrl, supabaseKey);
