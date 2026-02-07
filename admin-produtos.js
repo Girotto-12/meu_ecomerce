@@ -1,10 +1,6 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
-
 const SUPABASE_URL = 'https://idukyfshevrbutkddvuw.supabase.co';
 const SUPABASE_ANON_KEY = 'SUA-CHAVE-ANON';
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const form = document.getElementById("formProduto");
 const listaEl = document.getElementById("lista-produtos");
@@ -12,7 +8,6 @@ const nomeInput = document.getElementById("nome");
 const precoInput = document.getElementById("preco");
 const imagemInput = document.getElementById("imagem");
 const botao = form.querySelector("button");
-
 
 let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 let editandoIndex = null;
