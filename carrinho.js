@@ -1,113 +1,203 @@
-let carrinho = JSON.parse(localStorage.getItem("carrinho")) || [];
+import { supabase } from "./supabaseClient.js";
 
-const container = document.getElementById("itens-carrinho");
-const totalEl = document.getElementById("total");
+console.log("carrinho.js carregou ✅");
 
-function renderizarCarrinho() {
-  container.innerHTML = "";
-  let total = 0;
+document.addEventListener("DOMContentLoaded", async () => {
+  const listaEl = document.getElementById("itens-carrinho");
+  const totalEl = document.getElementById("total");
+  const btnFinalizar = document.getElementById("finalizarPedido");
 
-  if (carrinho.length === 0) {
-    container.innerHTML = "<p>🛒 Seu carrinho está vazio.</p>";
-    totalEl.textContent = "Total: R$ 0.00";
+  const modal = document.getElementById("modalPagamento");
+  const btnCartao = document.getElementById("btnCartao");
+  const btnPix = document.getElementById("btnPix");
+  const btnDinheiro = document.getElementById("btnDinheiro");
+
+  if (!listaEl || !totalEl || !btnFinalizar) {
+    console.error("❌ IDs do carrinho não encontrados. Verifique: itens-carrinho, total, finalizarPedido");
     return;
   }
 
-  carrinho.forEach((produto, index) => {
-    // Adiciona quantidade se não existir
-    if (!produto.quantidade) produto.quantidade = 1;
+  // 1) Sessão
+  const { data: sessData, error: sessErr } = await supabase.auth.getSession();
+  if (sessErr) console.error(sessErr);
 
-    const subtotal = produto.preco * produto.quantidade;
-    total += subtotal;
-
-    const item = document.createElement("div");
-    item.classList.add("item-carrinho");
-
-    item.innerHTML = `
-      <img src="${produto.imagem}" alt="${produto.nome}">
-      <div class="item-carrinho-info">
-        <div class="item-carrinho-nome">${produto.nome}</div>
-        <div class="item-carrinho-preco">Preço: R$ ${produto.preco.toFixed(2)}</div>
-        <div>Subtotal: R$ ${subtotal.toFixed(2)}</div>
-        <div>
-          <button onclick="alterarQuantidade(${index}, -1)">−</button>
-          <strong>${produto.quantidade}</strong>
-          <button onclick="alterarQuantidade(${index}, 1)">+</button>
-        </div>
-        <button onclick="removerItem(${index})">🗑️ Remover</button>
-      </div>
-    `;
-
-    container.appendChild(item);
-  });
-
-  totalEl.textContent = `Total: R$ ${total.toFixed(2)}`;
-}
-
-function alterarQuantidade(index, delta) {
-  carrinho[index].quantidade += delta;
-  if (carrinho[index].quantidade < 1) carrinho[index].quantidade = 1;
-  localStorage.setItem("carrinho", JSON.stringify(carrinho));
-  renderizarCarrinho();
-}
-
-function removerItem(index) {
-  carrinho.splice(index, 1);
-  localStorage.setItem("carrinho", JSON.stringify(carrinho));
-  renderizarCarrinho();
-}
-
-renderizarCarrinho();
-
-
-// ✅ ÚNICO event listener para finalizar o pedido
-document.getElementById("finalizarPedido").addEventListener("click", () => {
-  const usuario = JSON.parse(localStorage.getItem("usuarioLogado"));
-
-  if (!usuario) {
-    alert("⚠️ Você precisa estar logado para finalizar o pedido.");
+  const session = sessData?.session;
+  if (!session) {
+    alert("Faça login primeiro.");
     window.location.href = "login.html";
     return;
   }
 
-  if (carrinho.length === 0) {
-    alert("🛒 Seu carrinho está vazio.");
-    return;
+  const userId = session.user.id;
+
+  // 2) Buscar ou criar o draft order do usuário
+  async function getOrCreateDraftOrder() {
+    const { data: existing, error } = await supabase
+      .from("orders")
+      .select("id, subtotal_cents, shipping_cents, tax_cents, total_cents, status")
+      .eq("user_id", userId)
+      .eq("status", "draft")
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (existing) return existing;
+
+    const { data: created, error: createErr } = await supabase
+      .from("orders")
+      .insert([{ user_id: userId, status: "draft" }])
+      .select("id, subtotal_cents, shipping_cents, tax_cents, total_cents, status")
+      .single();
+
+    if (createErr) throw createErr;
+
+    return created;
   }
 
-  document.getElementById("modalPagamento").classList.remove("hidden");
+  // 3) Buscar itens do draft order (com join em products)
+  async function fetchOrderItems(orderId) {
+    const { data, error } = await supabase
+      .from("order_items")
+      .select(`
+        id,
+        qty,
+        unit_price_cents,
+        line_total_cents,
+        product:products (
+          id,
+          name,
+          image_url
+        )
+      `)
+      .eq("order_id", orderId)
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  // 4) Remover item
+  async function removeItem(itemId) {
+    const { error } = await supabase
+      .from("order_items")
+      .delete()
+      .eq("id", itemId);
+
+    if (error) throw error;
+  }
+
+  // 5) Render
+  let draftOrder = null;
+  let items = [];
+
+  function formatBRLFromCents(cents) {
+    const v = (Number(cents ?? 0) / 100).toFixed(2);
+    return v.replace(".", ",");
+  }
+
+  function render() {
+    if (!items.length) {
+      listaEl.innerHTML = "<p>Seu carrinho está vazio.</p>";
+      totalEl.textContent = "Total: R$ 0,00";
+      return;
+    }
+
+    listaEl.innerHTML = items.map((it) => {
+      const nome = it.product?.name ?? "Produto";
+      const imagem = it.product?.image_url ?? "https://via.placeholder.com/60";
+      const qtd = Number(it.qty ?? 1);
+      const preco = formatBRLFromCents(it.unit_price_cents);
+      const totalLinha = formatBRLFromCents(it.line_total_cents);
+
+      return `
+        <div style="display:flex; gap:12px; align-items:center; padding:10px; border-bottom:1px solid #ddd;">
+          <img src="${imagem}" alt="${nome}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;">
+          <div style="flex:1;">
+            <div><strong>${nome}</strong></div>
+            <div>Preço: R$ ${preco}</div>
+            <div>Qtd: ${qtd}</div>
+            <div><strong>Subtotal:</strong> R$ ${totalLinha}</div>
+          </div>
+          <button class="btn-remover" data-id="${it.id}">Remover</button>
+        </div>
+      `;
+    }).join("");
+
+    // Preferência: usar total do banco (orders.total_cents) se existir
+    const totalCents = Number(draftOrder?.total_cents ?? 0);
+    totalEl.textContent = `Total: R$ ${formatBRLFromCents(totalCents)}`;
+  }
+
+  // 6) Recarregar tudo do banco
+  async function refresh() {
+    draftOrder = await getOrCreateDraftOrder();
+    items = await fetchOrderItems(draftOrder.id);
+
+    // Se seu trigger de totals estiver OK, o total vem pronto no orders.
+    // Se ainda estiver 0, podemos recalcular pelo client (fallback):
+    if (!draftOrder.total_cents || draftOrder.total_cents === 0) {
+      const sum = items.reduce((acc, it) => acc + Number(it.line_total_cents ?? 0), 0);
+      totalEl.textContent = `Total: R$ ${formatBRLFromCents(sum)}`;
+    }
+
+    render();
+  }
+
+  // Remover via clique
+  listaEl.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".btn-remover");
+    if (!btn) return;
+
+    try {
+      await removeItem(btn.dataset.id);
+      await refresh();
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao remover item.");
+    }
+  });
+
+  // Modal pagamento (abrir)
+  btnFinalizar.addEventListener("click", () => {
+    if (!items.length) {
+      alert("Seu carrinho está vazio.");
+      return;
+    }
+    if (!modal) {
+      alert("Modal de pagamento não encontrado (modalPagamento).");
+      return;
+    }
+    modal.classList.remove("hidden");
+  });
+
+  // Finalizar pedido: muda status para "submitted" e salva notes
+  async function finalizarComPagamento(metodo) {
+    try {
+      modal?.classList.add("hidden");
+
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: "submitted", notes: `Pagamento: ${metodo}` })
+        .eq("id", draftOrder.id);
+
+      if (error) throw error;
+
+      alert(`Pedido finalizado com pagamento: ${metodo} ✅`);
+
+      // cria novo draft automaticamente na próxima visita
+      await refresh();
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao finalizar pedido.");
+    }
+  }
+
+  btnCartao?.addEventListener("click", () => finalizarComPagamento("Cartão"));
+  btnPix?.addEventListener("click", () => finalizarComPagamento("Pix"));
+  btnDinheiro?.addEventListener("click", () => finalizarComPagamento("Dinheiro"));
+
+  // Start
+  await refresh();
 });
 
-function finalizarComPagamento(formaPagamento) {
-  const usuario = JSON.parse(localStorage.getItem("usuarioLogado"));
-
-  let resumo = "Resumo do pedido:\n\n";
-  carrinho.forEach((item, i) => {
-    resumo += `${i + 1}. ${item.nome} - R$ ${item.preco.toFixed(2)}\n`;
-  });
-
-  const total = carrinho.reduce((acc, p) => acc + p.preco, 0);
-  resumo += `\nTotal: R$ ${total.toFixed(2)}\n`;
-  resumo += `Cliente: ${usuario.nome}\n`;
-  resumo += `Forma de Pagamento: ${formaPagamento}`;
-
-  let pedidos = JSON.parse(localStorage.getItem("pedidos")) || [];
-  pedidos.push({
-    email: usuario.email,
-    nome: usuario.nome,
-    data: new Date().toLocaleString(),
-    itens: [...carrinho],
-    total,
-    pagamento: formaPagamento
-  });
-  localStorage.setItem("pedidos", JSON.stringify(pedidos));
-
-  alert(`✅ Pedido finalizado com sucesso!\n\n${resumo}`);
-
-  carrinho = [];
-  localStorage.setItem("carrinho", JSON.stringify(carrinho));
-  renderizarCarrinho();
-
-  document.getElementById("modalPagamento").classList.add("hidden");
-}
 

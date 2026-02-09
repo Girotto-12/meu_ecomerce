@@ -1,23 +1,25 @@
-document.getElementById("cadastroForm").addEventListener("submit", function (e) {e.preventDefault();
+import { supabase } from "./supabaseClient.js";
 
-    const nome = document.getElementById("nome").value;
-    const email = document.getElementById("email").value;
-    const senha = document.getElementById("senha").value;
+document.querySelector("#btnCadastrar").addEventListener("click", async (e) => {
+  e.preventDefault();
 
-    // recupera usuarios existentes
-    const usuarios = JSON.parse(localStorage.getItem("usuarios")) || [];
+  const full_name = document.querySelector("#full_name").value.trim();
+  const email = document.querySelector("#email").value.trim();
+  const password = document.querySelector("#password").value;
 
-    // verifica se email ja esta cadastrado
-    const existe = usuarios.find(usuario => usuario.email === email);
-    if (existe) {
-        alert("❌ Este e-mail já está cadastrado.");
-        return;
-    }
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name } },
+  });
 
-    // Adiciona novo usuario
-    usuarios.push({ nome, email, senha});
-    localStorage.setItem("usuarios", JSON.stringify(usuarios));
+  if (error) {
+    alert("Erro no cadastro: " + error.message);
+    console.error(error);
+    return;
+  }
 
-    alert("✅ Cadastro realizado com sucesso!");
-    window.location.href = "login.html";
+  alert("Conta criada. Agora faça login.");
+  window.location.href = "login.html";
 });
+

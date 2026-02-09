@@ -1,18 +1,20 @@
-document.getElementById("loginform").addEventListener("submit", function (e) {
-    e.preventDefault();
+import { supabase } from "./supabaseClient.js";
 
-    const email = document.getElementById("email").value;
-    const senha = document.getElementById("senha").value;
+document.querySelector("#btnLogin").addEventListener("click", async (e) => {
+  e.preventDefault();
 
-    const usuarios = JSON.parse(localStorage.getItem("usuarios")) || [];
+  const email = document.querySelector("#email").value.trim();
+  const password = document.querySelector("#password").value;
 
-    const usuarioLogado = usuarios.find(u => u.email === email && u.senha === senha);
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (usuarioLogado) {
-        localStorage.setItem("usuarioLogado", JSON.stringify(usuarioLogado));
-        alert("✅ Login realizado com sucesso!");
-        window.location.href = "index.html";
-    } else {
-        alert("❌ E-mail ou senha incorretos.");
-    }
+  if (error) {
+    alert("Erro no login: " + error.message);
+    console.error(error);
+    return;
+  }
+
+  window.location.href = "index.html";
 });
+
+

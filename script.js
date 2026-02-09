@@ -1,113 +1,138 @@
-// Lista de Produtos
-const produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+import { supabase } from "./supabaseClient.js";
 
-// Elementos
-const listaProdutos = document.querySelector(".lista-produtos");
+const lista = document.querySelector(".lista-produtos");
 
-// Exibe produtos na tela
-function renderizarProdutos(lista = produtos) {
-  listaProdutos.innerHTML = "";
+function money(cents, currency = "USD") {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency
+  }).format((Number(cents || 0)) / 100);
+}
 
-  if (lista.length === 0) {
-    listaProdutos.innerHTML = "<p>Nenhum produto encontrado.</p>";
+async function getSessionOrRedirect() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+
+  const session = data?.session;
+  if (!session) {
+    alert("Faça login para continuar.");
+    window.location.href = "login.html";
+    return null;
+  }
+  return session;
+}
+
+async function getOrCreateDraftOrder(user_id) {
+  const { data: existing, error: selErr } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("user_id", user_id)
+    .eq("status", "draft")
+    .maybeSingle();
+
+  if (selErr) throw selErr;
+  if (existing?.id) return existing.id;
+
+  const { data: created, error: insErr } = await supabase
+    .from("orders")
+    .insert([{ user_id, status: "draft" }])
+    .select("id")
+    .single();
+
+  if (insErr) throw insErr;
+  return created.id;
+}
+
+async function addToCart(product_id) {
+  const session = await getSessionOrRedirect();
+  if (!session) return;
+
+  const user_id = session.user.id;
+
+  // 1) pega preço do produto
+  const { data: product, error: pErr } = await supabase
+    .from("products")
+    .select("id, price_cents")
+    .eq("id", product_id)
+    .single();
+
+  if (pErr) throw pErr;
+
+  // 2) pega/cria order draft
+  const order_id = await getOrCreateDraftOrder(user_id);
+
+  // 3) tenta achar item existente
+  const { data: existingItem, error: selItemErr } = await supabase
+    .from("order_items")
+    .select("id, qty")
+    .eq("order_id", order_id)
+    .eq("product_id", product.id)
+    .maybeSingle();
+
+  if (selItemErr) throw selItemErr;
+
+  if (existingItem?.id) {
+    // 4a) incrementa qty
+    const { error: updErr } = await supabase
+      .from("order_items")
+      .update({ qty: Number(existingItem.qty) + 1 })
+      .eq("id", existingItem.id);
+
+    if (updErr) throw updErr;
+  } else {
+    // 4b) insere novo item
+    const { error: insErr } = await supabase
+      .from("order_items")
+      .insert([{
+        order_id,
+        product_id: product.id,
+        qty: 1,
+        unit_price_cents: product.price_cents
+      }]);
+
+    if (insErr) throw insErr;
+  }
+
+  alert("Adicionado ao carrinho ✅");
+}
+
+async function carregarProdutos() {
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, name, description, price_cents, currency, image_url")
+    .eq("is_active", true)
+    .order("name");
+
+  if (error) {
+    console.error(error);
+    lista.innerHTML = `<p>Erro ao carregar produtos.</p>`;
     return;
   }
 
-  lista.forEach((produto) => {
-    const card = document.createElement("div");
-    card.classList.add("produto");
+  lista.innerHTML = (data || []).map(p => `
+    <div class="produto-card">
+      <img src="${p.image_url || ""}" alt="${p.name}" />
+      <h3>${p.name}</h3>
+      <p>${p.description || ""}</p>
+      <strong>${money(p.price_cents, p.currency || "USD")}</strong>
+      <button data-add="${p.id}">Adicionar ao carrinho</button>
+    </div>
+  `).join("");
 
-    const seloPromocao = produto.promocao
-      ? `<span class="selo-promocao">🔥 Promoção</span>`
-      : "";
+  // evita duplicar listener se recarregar a lista
+  lista.onclick = async (e) => {
+    const btn = e.target.closest("button[data-add]");
+    if (!btn) return;
 
-    card.innerHTML = `
-      ${seloPromocao}
-      <img src="${produto.imagem}" alt="${produto.nome}">
-      <h3>${produto.nome}</h3>
-      <p>R$ ${Number(produto.preco).toFixed(2)}</p>
-      <button onclick='adicionarAoCarrinho(${JSON.stringify(produto)})'>Adicionar ao carrinho</button>
-    `;
-
-    listaProdutos.appendChild(card);
-  });
+    try {
+      await addToCart(btn.dataset.add);
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao adicionar ao carrinho.");
+    }
+  };
 }
 
-renderizarProdutos();
-
-// ✅ Adicionar ao carrinho
-function adicionarAoCarrinho(produto) {
-  let carrinho = JSON.parse(localStorage.getItem("carrinho")) || [];
-  carrinho.push(produto);
-  localStorage.setItem("carrinho", JSON.stringify(carrinho));
-
-  // Animação rápida no botão (se quiser implementar depois)
-  alert(`✅ ${produto.nome} foi adicionado ao carrinho!`);
-}
+carregarProdutos();
 
 
-// ✅ Saudação de usuário
-const user = JSON.parse(localStorage.getItem("usuarioLogado"));
-
-if (user) {
-  const header = document.querySelector("header");
-
-  let saudacaoEl = document.getElementById("saudacao-usuario");
-
-  if (!saudacaoEl) {
-    saudacaoEl = document.createElement("p");
-    saudacaoEl.id = "saudacao-usuario";
-    saudacaoEl.style.textAlign = "right";
-    saudacaoEl.style.margin = "0 20px";
-    header.appendChild(saudacaoEl);
-  }
-
-  saudacaoEl.innerHTML = `
-    👋 Olá, <strong>${user.nome}</strong>! 
-    <button onclick="sair()" style="margin-left: 10px; padding: 4px 10px;">Sair</button>
-  `;
-}
-
-function sair() {
-  localStorage.removeItem("usuarioLogado");
-  alert("Você saiu da sua conta.");
-  window.location.reload();
-}
-
-if (user && user.email === "girotto@admin.com") {
-  const nav = document.querySelector("nav");
-  const adminLink = document.createElement("a");
-  adminLink.href = "admin.html";
-  adminLink.textContent = "Painel Admin";
-  nav.appendChild(adminLink);
-}
-
-// ✅ Filtro por nome e preço
-function filtrarProdutos() {
-  const nome = document.getElementById("filtroNome").value.toLowerCase();
-  const min = parseFloat(document.getElementById("filtroMin").value);
-  const max = parseFloat(document.getElementById("filtroMax").value);
-
-  const filtrados = produtos.filter((p) => {
-    const nomeValido = p.nome.toLowerCase().includes(nome);
-    const precoMinimoValido = isNaN(min) || p.preco >= min;
-    const precoMaximoValido = isNaN(max) || p.preco <= max;
-    return nomeValido && precoMinimoValido && precoMaximoValido;
-  });
-
-  renderizarProdutos(filtrados);
-}
-
-function limparFiltros() {
-  document.getElementById("filtroNome").value = "";
-  document.getElementById("filtroMin").value = "";
-  document.getElementById("filtroMax").value = "";
-  renderizarProdutos(produtos);
-}
-
-// script.js ou outro arquivo JS principal
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-const supabaseUrl = 'https://idukyfshevrbutkddvuw.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // sua chave completa aqui
-const supabase = createClient(supabaseUrl, supabaseKey);
